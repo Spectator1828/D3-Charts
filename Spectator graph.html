@@ -1,0 +1,271 @@
+<html>
+  <head>
+    <title>Spectator graph D3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto" rel="stylesheet">
+  <style type="text/css">
+    body{
+      font-family: roboto, sans-serif;
+    }
+    #graph_item{
+      color: rgb(162, 162, 162);
+    }
+    input[type=text]{
+      float: right;
+    }
+    .chart_container{
+      width: 400px;
+    }
+    .subheading{
+      float: left;
+    }
+    .country_selector{
+      position: absolute;
+      top: 0;
+      background: white;
+      visibility: hidden;
+      max-height: 400px;
+      overflow: scroll;
+      border-width: small;
+      border-style: solid;
+      margin-top: 5px;
+    }
+    .note{
+      color: #656565;
+      font-family: Roboto, sans-serif;
+      font-size: 12px;
+      font-style: italic;
+      font-weight: 400;
+    }
+    .chartfooter{
+      color: #888;
+      font-family: Roboto, sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+    }
+    .close_button{
+      float: right;
+    }
+    h1{
+      font-size: 2em;
+      font-weight: bold;
+    }
+  </style>
+  </head>
+  <body>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <div class="chart_container">
+    <div class="headline"></div>
+    <div class="subheading"></div><input type="text">
+    <div id="graph_item"></div>
+    </div>
+    <div class="note">Figures to 2020, published Aug 2021</div>
+    <div class="chartfooter">Chart: The Spectator Source: Our World in Data </div>
+    <div class="country_selector"><a class="close_button">Close</a>
+    <div class="country_selector_selected"></div>
+    <div class="country_selector_unselected"></div></div>
+    <script>
+
+// set the dimensions and margins of the graph
+var margin = {top: 10, right: 30, bottom: 30, left: 30},
+    width = 400- margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+// append the svg object to the body of the page
+var svg = d3.select("#graph_item")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+          
+function getQueryVariable(variable)
+{
+       var query = window.location.search.substring(1);
+       var vars = query.split("&");
+       for (var i=0;i<vars.length;i++) {
+               var pair = vars[i].split("=");
+               if(pair[0] == variable){return pair[1];}
+       }
+       return(false);
+}
+
+if(getQueryVariable("country")){
+var countries_forchart =  getQueryVariable("country").split(",") 
+} 
+else{
+var countries_forchart = ["United Kingdom", "United States", "France", "Germany"]
+}
+
+function draw_chart(){
+//Read the data
+d3.csv("https://raw.githubusercontent.com/Spectator1828/DataHub/main/gross-domestic-product.csv").then(function(data) {
+
+  data = data.filter(d => countries_forchart.includes(d.Entity))
+  
+  // group the data: I want to draw one line per group
+  var sumstat = d3.group(data,d => d.Entity)
+  
+
+  // Add X axis --> it is a date format
+  var x = d3.scaleLinear()
+    .domain(d3.extent(data, function(d) { return d.Year; }))
+    .range([ 0, width ]);
+  svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("")).tickSize(0))
+    .call(g => g.select(".domain")
+        .remove());
+
+  // Add Y axis
+  var y = d3.scaleLinear()
+    .domain([0, d3.max(data, function(d) { return +d.GDP; })])
+    .range([ height, 0 ]);
+  svg.append("g")
+    .call(d3.axisLeft(y).tickFormat(d3.format(".2s")).tickSize(-400))
+    .call(g => g.select(".domain")
+        .remove());
+
+  // color palette
+  var res = Array.from(sumstat.keys()) // list of group names
+  var color = d3.scaleOrdinal()
+    .domain(res)
+    .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+
+  // Draw the line
+  svg.selectAll(".line")
+      .data(sumstat)
+      .join("path")
+        .attr("fill", "none")
+        .attr("stroke", function(d){ return color(d[0]) })
+        .attr("stroke-width", 1.5)
+        .attr("d", function(d){
+          return d3.line()
+            .x(function(d) { return x(d.Year); })
+            .y(function(d) { return y(+d.GDP); })
+            (d[1])
+        })
+        
+        
+var bisect = d3.bisector(function(d) { return d.Year; }).left;
+
+// Create the circle that travels along the curve of chart
+var focus = svg
+  .append('g')
+  .append('circle')
+    .style("fill", "none")
+    .attr("stroke", "rgb(24, 24, 24)")
+    .attr('r', 5)
+    .style("opacity", 0)
+
+// Create the text that travels along the curve of chart
+var focusText = svg
+  .append('g')
+  .append('text')
+    .style("opacity", 0)
+    .attr("text-anchor", "left")
+    .attr("alignment-baseline", "middle")
+        
+        // Create a rect on top of the svg area: this rectangle recovers mouse position
+      svg
+        .append('rect')
+        .style("fill", "none")
+        .style("pointer-events", "all")
+        .attr('width', width)
+        .attr('height', height)
+        .on('mouseover', mouseover)
+        .on('mousemove', mousemove)
+        .on('mouseout', mouseout);
+
+
+      // What happens when the mouse move -> show the annotations at the right positions.
+      function mouseover() {
+        focus.style("opacity", 1)
+        focusText.style("opacity",1)
+      }
+
+      function mousemove() {
+        // recover coordinate needed
+        var x0 = x.invert(d3.pointer(event)[0]);
+        var i = bisect(data, x0, 1);
+        selectedData = data[i]
+        focus
+          .attr("cx", x(selectedData.Year))
+          .attr("cy", y(selectedData.GDP))
+        focusText
+          .html(selectedData.Entity + selectedData.Year + Math.round(selectedData.GDP))
+          .attr("x", x(selectedData.Year))
+          .attr("y", y(selectedData.GDP)-15)
+        }
+      function mouseout() {
+        focus.style("opacity", 0)
+        focusText.style("opacity", 0)
+      }    
+
+})
+}
+draw_chart();
+
+function add_country(country){
+  if(countries_forchart.includes(country)){
+    for (var i = countries_forchart.length - 1; i >= 0; i--) {
+      if (countries_forchart[i] === country) {
+      countries_forchart.splice(i, 1);
+    }
+}
+  }
+  else{
+  countries_forchart.push(country);
+  }
+}
+
+ countries_forchart.forEach(function(element){
+    d3.select(".country_selector_selected")
+    .append("span")
+    .html(element+"<input type='checkbox' value='"+element+"' onclick='add_country(this.value)' checked><br>");
+  })
+  
+d3.csv("https://raw.githubusercontent.com/Spectator1828/DataHub/main/gross-domestic-product.csv").then(function(data) {
+  
+  var data = data.filter(d => !countries_forchart.includes(d.Entity))
+  var sumstat = d3.group(data,d => d.Entity)
+  
+ 
+ d3.select(".country_selector_unselected").selectAll("span")
+        .data(sumstat)
+        .join("span")
+        .html(function(d){
+          if(countries_forchart.includes(d[0])){return d[0]+"<input type='checkbox' value='"+d[0]+"' onclick='add_country(this.value)' checked><br>"}
+        else{return d[0]+"<input type='checkbox' value='"+d[0]+"' onclick='add_country(this.value)'><br>"}
+        });
+})   
+        
+        
+d3.select(".headline").append("span")
+        .attr("text-anchor", "middle")  
+        .style("font-size", "22px")
+        .style("font-weight", 700)
+        .style("font-family", "Roboto, sans-serif")
+        .html("<h1>GDP</h1>");
+        
+d3.select(".subheading").append("span")
+        .attr("text-anchor", "middle")  
+        .style("font-size", "14px")
+        .style("font-weight", 400)
+        .style("font-family", "Roboto, sans-serif")
+        .html("1960-2020");
+        
+d3.select("input[type=text]").on("click", function(){
+  d3.select(".country_selector").style("visibility", "visible");
+})
+
+d3.select(".close_button").on("click", function(){
+  d3.select(".country_selector").style("visibility", "hidden");
+  svg.selectAll("*").remove();
+  draw_chart();
+})
+</script>
+  </body>
+</html>
