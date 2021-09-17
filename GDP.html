@@ -51,13 +51,17 @@
       font-size: 2em;
       font-weight: bold;
     }
+    .add_country{
+      float: right;
+      cursor: pointer;
+    }
   </style>
   </head>
   <body>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <div class="chart_container">
     <div class="headline"></div>
-    <div class="subheading"></div><input type="text">
+    <div class="subheading"></div><div class="add_country">⊕ Add country</div>
     <div id="graph_item"></div>
     </div>
     <div class="note">Figures to 2020, published Aug 2021</div>
@@ -259,7 +263,7 @@ d3.select(".subheading").append("span")
         .style("font-family", "Roboto, sans-serif")
         .html("1960-2020");
         
-d3.select("input[type=text]").on("click", function(){
+d3.select(".add_country").on("click", function(){
   d3.select(".country_selector").style("visibility", "visible");
 })
 
