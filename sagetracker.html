@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <title>Sage vs actual</title>
+    <style type="text/css">
+      .chart{
+        width: 597px;
+        height: 400px;
+        background: url("sage.png") no-repeat;
+      }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <svg class="chart"></svg>
+    <script>
+
+// set the dimensions and margins of the graph
+var margin = {top: 15, right: 30, bottom: 35, left: 68},
+    width = 597 - margin.left - margin.right,
+    height = 340 - margin.top - margin.bottom;
+
+// append the svg object to the body of the page
+var svg = d3.select(".chart")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+var parseTime = d3.timeParse("%d/%m/%Y");
+
+//Read the data
+d3.csv("https://raw.githubusercontent.com/Spectator1828/DataHub/main/sageactualdata.csv").then(function(data) {
+
+    data.forEach(function(d) {
+      d.date = parseTime(d.date);
+      d.actual = +d.actual;
+      console.log(d)
+  });
+
+
+
+    // Add X axis --> it is a date format
+    var x = d3.scaleTime()
+      .domain([parseTime("26/09/2021"),parseTime("30/06/2022")])
+      .range([ 0, width ]);
+  
+
+    // Add Y axis
+    var y = d3.scaleLinear()
+      .domain([0, 2000])
+      .range([ height, 0 ]);
+  
+
+    // Add the line
+    svg.append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", "#c71e1d")
+      .attr("stroke-width", 4)
+      .attr("d", d3.line()
+        .x(function(d) { return x(d.date) })
+        .y(function(d) { return y(d.actual) })
+        )
+
+})
+
+</script>
+  </body>
+</html>
